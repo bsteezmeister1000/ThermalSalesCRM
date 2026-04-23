@@ -148,3 +148,4 @@ To add a new city adapter:
 - Implement merge/suppress workflows for duplicates and bad-fit patterns.
 - Add mutation routes for status transitions, notes, and source enable/disable controls.
 - Add daily digest delivery and source-failure alerts.
+# ThermalSalesCRM
