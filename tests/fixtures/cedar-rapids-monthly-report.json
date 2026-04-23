@@ -1,0 +1,21 @@
+[
+  {
+    "permit_number": "CR-2026-00112",
+    "permit_type": "Building Permit",
+    "work_class": "New Single Family Dwelling",
+    "issue_date": "2026-04-20",
+    "status": "Issued",
+    "address": "4102 Prairie Vista Dr NE",
+    "city": "Cedar Rapids",
+    "state": "IA",
+    "zip": "52402",
+    "parcel_number": "141635200300000",
+    "project_name": "Prairie Vista Lot 18",
+    "project_description": "New single family home construction",
+    "valuation": 385000,
+    "builder_name": "Hearthstone Homes LLC",
+    "subdivision": "Prairie Vista",
+    "neighborhood": "Noelridge",
+    "assessor_url": "https://example.org/parcel/141635200300000"
+  }
+]

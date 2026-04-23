@@ -1,0 +1,451 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SourceType {
+  pdf_report
+  xlsx_report
+  public_search
+  permit_detail
+  assessor
+  manual_import
+}
+
+enum HealthStatus {
+  healthy
+  degraded
+  failed
+  manual_review
+  disabled
+}
+
+enum ParseStatus {
+  pending
+  parsed
+  low_confidence
+  failed
+  ignored
+}
+
+enum OrganizationType {
+  builder
+  general_contractor
+  subcontractor
+  developer
+  owner
+  supplier
+  unknown
+}
+
+enum LeadType {
+  new_home
+  multifamily
+  commercial
+  remodel
+  addition
+  retrofit_adjacent
+  unknown
+}
+
+enum LeadStatus {
+  new
+  review
+  qualified
+  contacted
+  estimating
+  bid_sent
+  won
+  lost
+  archived
+}
+
+enum RelationshipType {
+  builder
+  owner
+  gc
+  applicant
+  contractor
+  contact_match
+  inferred
+}
+
+enum ActivityType {
+  scraped
+  updated
+  reviewed
+  contacted
+  note
+  estimate_created
+  bid_sent
+  won
+  lost
+}
+
+enum ReviewFlagType {
+  possible_duplicate
+  parse_uncertainty
+  irrelevant_permit
+  missing_builder
+  missing_contact
+  likely_good_lead
+  stale
+}
+
+enum JobStatus {
+  queued
+  running
+  succeeded
+  failed
+}
+
+model Source {
+  id                    String       @id @default(cuid())
+  adapterKey            String       @unique
+  name                  String
+  jurisdiction          String
+  jurisdictionSlug      String
+  type                  SourceType
+  baseUrl               String
+  enabled               Boolean      @default(true)
+  supportsAutomation    Boolean      @default(true)
+  manualReviewOnly      Boolean      @default(false)
+  crawlFrequencyMinutes Int?
+  lastRunAt             DateTime?
+  lastSuccessAt         DateTime?
+  lastFailureAt         DateTime?
+  consecutiveFailures   Int          @default(0)
+  healthStatus          HealthStatus @default(healthy)
+  notes                 String?
+  healthDetailsJson     Json?
+  configJson            Json?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  rawRecords            RawRecord[]
+  permits               Permit[]
+  syncJobRuns           SyncJobRun[]
+
+  @@unique([name, jurisdiction])
+  @@index([jurisdictionSlug, enabled])
+}
+
+model RawRecord {
+  id               String           @id @default(cuid())
+  sourceId         String
+  sourceRecordKey  String
+  fetchedAt        DateTime
+  sourceUpdatedAt  DateTime?
+  rawPayloadJson   Json
+  rawText          String?
+  canonicalHash    String
+  parseStatus      ParseStatus      @default(pending)
+  parseErrors      String?
+  sourceUrl        String?
+  contentType      String?
+  httpStatus       Int?
+  firstSeenAt      DateTime
+  lastSeenAt       DateTime
+  confidence       Int              @default(50)
+  lineageJson      Json?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  source           Source           @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  permitSnapshots  PermitSnapshot[]
+  changeLogs       ChangeLog[]
+
+  @@unique([sourceId, sourceRecordKey, canonicalHash])
+  @@index([sourceId, sourceRecordKey])
+  @@index([sourceId, lastSeenAt])
+  @@index([canonicalHash])
+}
+
+model Permit {
+  id                   String           @id @default(cuid())
+  normalizedKey        String           @unique
+  sourceId             String
+  permitNumber         String?
+  permitNumberNormalized String?
+  permitType           String?
+  workClass            String?
+  issueDate            DateTime?
+  applicationDate      DateTime?
+  status               String?
+  statusNormalized     String?
+  address1             String?
+  address2             String?
+  city                 String?
+  state                String?
+  zip                  String?
+  parcelNumber         String?
+  projectName          String?
+  projectDescription   String?
+  valuation            Decimal?         @db.Decimal(12, 2)
+  permitUrl            String?
+  sourceConfidence     Int              @default(50)
+  provenanceJson       Json?
+  reviewRequired       Boolean          @default(false)
+  firstSeenAt          DateTime
+  lastSeenAt           DateTime
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  propertyId           String?
+
+  source               Source           @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  property             Property?        @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  lead                 Lead?
+  snapshots            PermitSnapshot[]
+
+  @@index([sourceId, permitNumber])
+  @@index([city, issueDate])
+  @@index([permitType, workClass])
+  @@index([statusNormalized, lastSeenAt])
+  @@index([parcelNumber])
+  @@index([propertyId])
+}
+
+model PermitSnapshot {
+  id                String    @id @default(cuid())
+  permitId          String
+  rawRecordId       String?
+  snapshotHash      String
+  normalizedDataJson Json
+  changedFieldsJson Json?
+  confidence        Int       @default(50)
+  observedAt        DateTime
+  createdAt         DateTime  @default(now())
+
+  permit            Permit    @relation(fields: [permitId], references: [id], onDelete: Cascade)
+  rawRecord         RawRecord? @relation(fields: [rawRecordId], references: [id], onDelete: SetNull)
+
+  @@unique([permitId, snapshotHash])
+  @@index([permitId, observedAt])
+  @@index([rawRecordId])
+}
+
+model Organization {
+  id               String             @id @default(cuid())
+  name             String
+  normalizedName   String             @unique
+  type             OrganizationType   @default(unknown)
+  website          String?
+  normalizedDomain String?
+  phone            String?
+  email            String?
+  notes            String?
+  confidence       Int                @default(50)
+  aliasesJson      Json?
+  lastSeenAt       DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  contacts         PersonContact[]
+  primaryLeads     Lead[]             @relation("PrimaryOrganizationLeads")
+  leadLinks        LeadOrganizationLink[]
+
+  @@index([type, lastSeenAt])
+}
+
+model PersonContact {
+  id             String       @id @default(cuid())
+  organizationId String
+  fullName       String
+  firstName      String?
+  lastName       String?
+  roleTitle      String?
+  email          String?
+  normalizedEmail String?
+  phone          String?
+  source         String?
+  sourceUrl      String?
+  provenanceJson Json?
+  confidence     Int          @default(50)
+  lastVerifiedAt DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, normalizedEmail])
+  @@index([organizationId, lastVerifiedAt])
+}
+
+model Property {
+  id                   String    @id @default(cuid())
+  normalizedAddressKey String    @unique
+  normalizedParcelKey  String?   @unique
+  address1             String
+  city                 String
+  state                String
+  zip                  String?
+  parcelNumber         String?
+  subdivision          String?
+  neighborhood         String?
+  latitude             Decimal?  @db.Decimal(10, 7)
+  longitude            Decimal?  @db.Decimal(10, 7)
+  assessedValue        Decimal?  @db.Decimal(12, 2)
+  landValue            Decimal?  @db.Decimal(12, 2)
+  improvementValue     Decimal?  @db.Decimal(12, 2)
+  yearBuilt            Int?
+  dwellingType         String?
+  notes                String?
+  assessorUrl          String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  permits              Permit[]
+  leads                Lead[]
+
+  @@index([city, state])
+  @@index([subdivision])
+  @@index([neighborhood])
+}
+
+model Lead {
+  id                    String                 @id @default(cuid())
+  permitId              String                 @unique
+  propertyId            String?
+  primaryOrgId          String?
+  mergedIntoLeadId      String?
+  leadType              LeadType               @default(unknown)
+  insulationFitScore    Int                    @default(0)
+  revenuePotentialScore Int                    @default(0)
+  relationshipScore     Int                    @default(0)
+  freshnessScore        Int                    @default(0)
+  overallScore          Int                    @default(0)
+  recommendedAction     String?
+  status                LeadStatus             @default(new)
+  assignedTo            String?
+  firstSeenAt           DateTime
+  lastActivityAt        DateTime
+  reviewedAt            DateTime?
+  reviewNotes           String?
+  suppressionReason     String?
+  suppressedAt          DateTime?
+  confidence            Int                    @default(50)
+  scoreExplanationJson  Json?
+  reviewStateJson       Json?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+
+  permit                Permit                 @relation(fields: [permitId], references: [id], onDelete: Cascade)
+  property              Property?              @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  primaryOrg            Organization?          @relation("PrimaryOrganizationLeads", fields: [primaryOrgId], references: [id], onDelete: SetNull)
+  mergedIntoLead        Lead?                  @relation("LeadMerges", fields: [mergedIntoLeadId], references: [id], onDelete: SetNull)
+  mergedChildren        Lead[]                 @relation("LeadMerges")
+  organizationLinks     LeadOrganizationLink[]
+  activities            LeadActivity[]
+  reviewFlags           ReviewFlag[]
+
+  @@index([status, overallScore])
+  @@index([leadType, overallScore])
+  @@index([primaryOrgId, lastActivityAt])
+  @@index([mergedIntoLeadId])
+}
+
+model LeadOrganizationLink {
+  leadId            String
+  organizationId    String
+  relationshipType  RelationshipType
+  confidence        Int            @default(50)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  lead              Lead           @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  organization      Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@id([leadId, organizationId, relationshipType])
+  @@index([organizationId, relationshipType])
+}
+
+model LeadActivity {
+  id            String       @id @default(cuid())
+  leadId        String
+  activityType  ActivityType
+  activityAt    DateTime
+  actor         String?
+  detail        String?
+  metadataJson  Json?
+  createdAt     DateTime     @default(now())
+
+  lead          Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId, activityAt])
+  @@index([activityType, activityAt])
+}
+
+model ChangeLog {
+  id                String      @id @default(cuid())
+  entityType        String
+  entityId          String
+  changedFieldsJson Json
+  previousValueJson Json?
+  newValueJson      Json?
+  changedAt         DateTime    @default(now())
+  actor             String?
+  sourceSyncJobRunId String?
+  sourceRawRecordId String?
+  createdAt         DateTime    @default(now())
+
+  sourceSyncJobRun  SyncJobRun? @relation(fields: [sourceSyncJobRunId], references: [id], onDelete: SetNull)
+  sourceRawRecord   RawRecord?  @relation(fields: [sourceRawRecordId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId, changedAt])
+  @@index([sourceSyncJobRunId])
+  @@index([sourceRawRecordId])
+}
+
+model ReviewFlag {
+  id          String         @id @default(cuid())
+  leadId      String
+  flag        ReviewFlagType
+  detail      String?
+  resolvedAt  DateTime?
+  createdAt   DateTime       @default(now())
+
+  lead        Lead           @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId, flag])
+}
+
+model SyncJobRun {
+  id               String      @id @default(cuid())
+  sourceId         String?
+  jobKey           String      @unique
+  jobType          String
+  triggerMode      String      @default("scheduled")
+  status           JobStatus   @default(queued)
+  startedAt        DateTime
+  finishedAt       DateTime?
+  rowsDiscovered   Int         @default(0)
+  rowsFetched      Int         @default(0)
+  rowsParsed       Int         @default(0)
+  rowsInserted     Int         @default(0)
+  rowsUpdated      Int         @default(0)
+  errorMessage     String?
+  errorDetailsJson Json?
+  metadataJson     Json?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  source           Source?     @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  changeLogs       ChangeLog[]
+
+  @@index([sourceId, startedAt])
+  @@index([jobType, status, startedAt])
+}
+
+model Digest {
+  id            String    @id @default(cuid())
+  digestDate    DateTime
+  digestType    String
+  payloadJson   Json
+  createdAt     DateTime  @default(now())
+
+  @@unique([digestDate, digestType])
+}
