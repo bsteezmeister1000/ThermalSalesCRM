@@ -16,6 +16,8 @@ export const cedarRapidsMonthlyPermitFixture = [
     builder_name: "Hearthstone Homes LLC",
     subdivision: "Prairie Vista",
     neighborhood: "Noelridge",
+    latitude: 42.0219,
+    longitude: -91.6345,
     assessor_url: "https://example.org/parcel/141635200300000"
   },
   {
@@ -35,6 +37,8 @@ export const cedarRapidsMonthlyPermitFixture = [
     builder_name: "KAC Construction",
     subdivision: "Westdale",
     neighborhood: "Westdale",
+    latitude: 41.9561,
+    longitude: -91.6844,
     assessor_url: "https://example.org/parcel/191210400900000"
   },
   {
@@ -54,6 +58,8 @@ export const cedarRapidsMonthlyPermitFixture = [
     builder_name: "Corridor Custom Builders Inc.",
     subdivision: "Forest Ridge",
     neighborhood: "Wellington Heights",
+    latitude: 41.9753,
+    longitude: -91.6328,
     assessor_url: "https://example.org/parcel/142730600600000"
   }
 ] as const;

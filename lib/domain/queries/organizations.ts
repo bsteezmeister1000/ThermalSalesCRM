@@ -12,7 +12,28 @@ export async function getOrganizations() {
           }
         },
         include: {
-          contacts: true,
+          contacts: {
+            take: 3,
+            orderBy: {
+              lastVerifiedAt: "desc"
+            }
+          },
+          leadLinks: {
+            include: {
+              lead: {
+                select: {
+                  overallScore: true,
+                  status: true,
+                  permit: {
+                    select: {
+                      city: true
+                    }
+                  }
+                }
+              }
+            },
+            take: 12
+          },
           _count: {
             select: {
               leadLinks: true

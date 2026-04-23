@@ -24,6 +24,8 @@ type MonthlyReportRow = {
   builder_name?: string;
   subdivision?: string;
   neighborhood?: string;
+  latitude?: number;
+  longitude?: number;
   assessor_url?: string;
 };
 
@@ -97,6 +99,8 @@ export class MonthlyReportAdapter implements SourceAdapter {
         parcelNumber: row.parcel_number,
         subdivision: row.subdivision,
         neighborhood: row.neighborhood,
+        latitude: row.latitude,
+        longitude: row.longitude,
         assessedValue: row.valuation ? row.valuation * 0.92 : undefined,
         landValue: row.valuation ? row.valuation * 0.22 : undefined,
         improvementValue: row.valuation ? row.valuation * 0.7 : undefined,

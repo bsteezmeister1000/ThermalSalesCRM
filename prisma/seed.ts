@@ -106,8 +106,24 @@ async function seedChangeLogsAndActivities() {
       where: { id: topLead.id },
       data: {
         status: LeadStatus.review,
+        nextAction: "Call builder and request plans",
+        nextActionState: "open",
+        nextActionDueAt: new Date("2026-04-24T15:00:00.000Z"),
         reviewedAt: new Date(),
         reviewNotes: "High-fit new home builder worth immediate outreach."
+      }
+    });
+  }
+
+  const qualifiedLead = leads.find((lead) => lead.status === LeadStatus.new && lead.id !== topLead?.id);
+  if (qualifiedLead) {
+    await prisma.lead.update({
+      where: { id: qualifiedLead.id },
+      data: {
+        status: LeadStatus.qualified,
+        nextAction: "Send intro email and schedule bid follow-up",
+        nextActionState: "waiting",
+        nextActionDueAt: new Date("2026-04-25T16:00:00.000Z")
       }
     });
   }

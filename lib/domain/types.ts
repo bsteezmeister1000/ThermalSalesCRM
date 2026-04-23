@@ -50,6 +50,8 @@ export type NormalizedPermitInput = {
     parcelNumber?: string;
     subdivision?: string;
     neighborhood?: string;
+    latitude?: number;
+    longitude?: number;
     assessedValue?: number;
     landValue?: number;
     improvementValue?: number;
@@ -75,6 +77,17 @@ export type NormalizedPermitInput = {
       | "stale";
     detail?: string;
   }>;
+};
+
+export type PermitListFilters = {
+  query?: string;
+  city?: string;
+  permitType?: string;
+  status?: string;
+  sourceId?: string;
+  leadStatus?: LeadStatus | "";
+  radiusMode?: "verified_or_approx" | "verified_only";
+  sort?: "newest" | "oldest" | "highest_value" | "priority" | "recently_seen";
 };
 
 export type SourceHealth = {
@@ -110,6 +123,7 @@ export type ScoreBreakdown = {
 };
 
 export type LeadQueueFilters = {
+  view?: "all" | "review_now" | "qualified_pipeline" | "follow_up" | "recent" | "high_priority";
   city?: string;
   jurisdiction?: string;
   permitType?: string;

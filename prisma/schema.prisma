@@ -64,6 +64,12 @@ enum LeadStatus {
   archived
 }
 
+enum NextActionState {
+  open
+  waiting
+  done
+}
+
 enum RelationshipType {
   builder
   owner
@@ -304,6 +310,7 @@ model Property {
   @@index([city, state])
   @@index([subdivision])
   @@index([neighborhood])
+  @@index([latitude, longitude])
 }
 
 model Lead {
@@ -319,6 +326,9 @@ model Lead {
   freshnessScore        Int                    @default(0)
   overallScore          Int                    @default(0)
   recommendedAction     String?
+  nextAction            String?
+  nextActionState       NextActionState        @default(open)
+  nextActionDueAt       DateTime?
   status                LeadStatus             @default(new)
   assignedTo            String?
   firstSeenAt           DateTime
@@ -345,6 +355,7 @@ model Lead {
   @@index([status, overallScore])
   @@index([leadType, overallScore])
   @@index([primaryOrgId, lastActivityAt])
+  @@index([nextActionState, nextActionDueAt])
   @@index([mergedIntoLeadId])
 }
 

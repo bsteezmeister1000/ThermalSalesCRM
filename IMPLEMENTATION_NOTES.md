@@ -22,6 +22,14 @@
 5. Create fixture tests before enabling automation.
 6. Mark unstable or login-gated sources as manual/public-review until a durable workflow exists.
 
+## Cedar Rapids radius permit list
+
+- The app centers permit discovery on Cedar Rapids, IA using a 100-mile radius.
+- Exact radius checks use `Property.latitude` and `Property.longitude` when present.
+- If coordinates are missing, the permit list can still include records using documented city-centroid estimates.
+- Estimated matches are labeled in the UI so sales users can distinguish them from exact-coordinate matches.
+- Records without coordinates and without a supported city centroid are excluded from the in-radius list and counted as unknown coverage.
+
 ## Extending lead scoring
 
 - Scoring config starts in `lib/domain/config.ts`.
@@ -33,5 +41,6 @@
 
 - The app is intentionally web-first.
 - Scraping and sync jobs run server-side and write through Prisma.
+- Lead workflow now includes explicit next-action fields on `Lead`, so queue views and detail pages can distinguish between recommendation and operator-owned follow-through.
 - The PWA layer makes the app installable without changing the backend contract.
 - A future Electron or Tauri wrapper should sit around the existing Next.js app rather than replacing the data pipeline.

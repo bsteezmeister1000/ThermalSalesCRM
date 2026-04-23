@@ -1,13 +1,8 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import dynamic from "next/dynamic";
 
 import "@/app/globals.css";
-
-const PwaClientShell = dynamic(
-  () => import("@/components/layout/pwa-client-shell").then((module) => module.PwaClientShell),
-  { ssr: false }
-);
+import { PwaClientShell } from "@/components/layout/pwa-client-shell";
 
 export const metadata: Metadata = {
   title: "Thermal Lead Tracker",

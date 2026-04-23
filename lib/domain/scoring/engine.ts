@@ -127,10 +127,11 @@ export function scoreLead(input: ScoreInput): ScoreBreakdown {
   freshnessScore = clamp(freshnessScore);
 
   const overallScore = clamp(
-    insulationFitScore * 0.4 +
-      revenuePotentialScore * 0.25 +
-      relationshipScore * 0.2 +
-      freshnessScore * 0.15
+    (insulationFitScore +
+      revenuePotentialScore +
+      relationshipScore +
+      freshnessScore) /
+      2
   );
 
   const recommendedAction =

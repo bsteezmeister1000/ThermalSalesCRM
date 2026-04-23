@@ -7,14 +7,14 @@ export default async function SettingsPage() {
 
   return (
     <AppShell pathname="/settings">
-      <Card>
-        <CardTitle>Scoring rules</CardTitle>
+      <Card className="border-slate-200 bg-white">
+        <CardTitle>Settings</CardTitle>
         <CardDescription className="mt-2">
-          Explainable, tunable scoring weights. These are config-driven so the owner can iterate without replacing the core
-          workflow.
+          Scoring remains configurable, but the product focus is permit-driven insulation lead tracking.
         </CardDescription>
       </Card>
-      <Card>
+      <Card className="border-slate-200 bg-white">
+        <CardTitle>Scoring rules</CardTitle>
         <pre className="overflow-x-auto rounded-2xl bg-slate-950 p-5 text-sm text-slate-100">
           {JSON.stringify(settings, null, 2)}
         </pre>

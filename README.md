@@ -4,11 +4,12 @@ Thermal Lead Tracker is a production-minded MVP for insulation contractors worki
 
 ## Architecture summary
 
-- `Next.js App Router + TypeScript + Tailwind`: server-rendered operational UI for dashboard, lead queue, lead detail, organizations, sources/health, imports, and scoring settings.
+- `Next.js App Router + TypeScript + Tailwind`: server-rendered operational UI for dashboard, permits, leads, organizations, source health, and settings.
 - `PostgreSQL + Prisma`: normalized entities for sources, raw records, permits, permit snapshots, properties, organizations, leads, review flags, activities, change logs, sync job runs, and digests.
 - `Server-side ingestion + sync jobs`: each jurisdiction/source gets an isolated adapter implementing `fetchIndex`, optional `fetchDetail`, `parse`, and `healthcheck`, with sync runs recorded in the database.
 - `Explainable scoring`: the scoring engine returns both category scores and human-readable reasons.
 - `Review-first data flow`: raw source records remain distinct from normalized lead data; manual-review sources are explicitly marked instead of scraped evasively.
+- `Permit-radius workflow`: the main permit list centers on Cedar Rapids, IA and filters records to a 100-mile radius using exact coordinates when available and city-centroid estimates when they are not.
 - `Installable PWA`: the MVP is intentionally a web app first, with a manifest, service worker, and install prompt instead of Electron or Tauri.
 
 ## Delivery stance
@@ -29,7 +30,7 @@ The database layer is designed as a real operational baseline, not a scratchpad:
 - `Permit` is the current normalized representation used by the app.
 - `PermitSnapshot` preserves normalized historical observations so permit changes do not erase prior state.
 - `Property`, `Organization`, and `PersonContact` hold enrichment data with confidence and provenance support.
-- `Lead` models the CRM workflow state for a permit-driven opportunity.
+- `Lead` models the CRM workflow state for a permit-driven opportunity, including explicit next-action tracking.
 - `LeadOrganizationLink` captures builder / GC / owner / applicant relationships cleanly.
 - `LeadActivity` records user and system activity over time.
 - `ChangeLog` stores structured field-level change history.
@@ -62,7 +63,9 @@ Core entities in `prisma/schema.prisma`:
 - Prisma schema and initial migration folder.
 - Cedar Rapids monthly permit report adapter using fixture-backed sample records.
 - Manual/public-review placeholders for Linn County, Marion, Iowa City, and Coralville.
-- Lead queue, lead detail, organizations, sources/health, imports, and scoring settings pages.
+- Permit list and permit detail views centered on a 100-mile Cedar Rapids radius.
+- Lead queue, lead detail, organizations, source health, and settings pages.
+- Lead queue workflow with saved views, bulk triage, row actions, recent-change cues, and explicit next-action handling.
 - Scoring engine v1 with visible reasons.
 - Seed flow that creates sources, ingests Cedar Rapids sample permits, and writes job/digest/changelog data.
 - Unit, integration, fixture, and baseline E2E tests.
@@ -98,13 +101,14 @@ Core entities in `prisma/schema.prisma`:
 
 The initial migration lives at [prisma/migrations/20260423150000_init/migration.sql](/Users/bentonjackson/Documents/Thermal%20Sales%20CRM%20/prisma/migrations/20260423150000_init/migration.sql).
 It creates the full relational baseline, not just placeholder enums.
+The workflow refinement migration for next-action tracking lives at [prisma/migrations/20260423210103_lead_workflow_actions/migration.sql](/Users/bentonjackson/Documents/Thermal%20Sales%20CRM%20/prisma/migrations/20260423210103_lead_workflow_actions/migration.sql).
+The property-location index migration for faster radius-oriented lookups lives at [prisma/migrations/20260423213030_property_location_index/migration.sql](/Users/bentonjackson/Documents/Thermal%20Sales%20CRM%20/prisma/migrations/20260423213030_property_location_index/migration.sql).
 If Prisma CLI is temporarily unavailable in a constrained environment, [scripts/apply_manual_prisma_migration.py](/Users/bentonjackson/Documents/Thermal%20Sales%20CRM%20/scripts/apply_manual_prisma_migration.py) can apply the checked-in SQL migration and record it in `_prisma_migrations`.
 
 ## PWA notes
 
 - The web manifest is defined in [app/manifest.ts](/Users/bentonjackson/Documents/Thermal%20Sales%20CRM%20/app/manifest.ts).
-- Service worker registration lives in [components/layout/service-worker-registration.tsx](/Users/bentonjackson/Documents/Thermal%20Sales%20CRM%20/components/layout/service-worker-registration.tsx) and the service worker itself is [public/sw.js](/Users/bentonjackson/Documents/Thermal%20Sales%20CRM%20/public/sw.js).
-- The install affordance is [components/layout/pwa-install-prompt.tsx](/Users/bentonjackson/Documents/Thermal%20Sales%20CRM%20/components/layout/pwa-install-prompt.tsx).
+- The client-side PWA shell lives in [components/layout/pwa-client-shell.tsx](/Users/bentonjackson/Documents/Thermal%20Sales%20CRM%20/components/layout/pwa-client-shell.tsx) and the service worker itself is [public/sw.js](/Users/bentonjackson/Documents/Thermal%20Sales%20CRM%20/public/sw.js).
 - PWA icons are generated into `public/` by [scripts/generate_pwa_icons.py](/Users/bentonjackson/Documents/Thermal%20Sales%20CRM%20/scripts/generate_pwa_icons.py).
 - This keeps the MVP desktop-like for operators while avoiding native wrapper complexity in version one.
 
@@ -133,6 +137,8 @@ To add a new city adapter:
 - `RawRecord` keeps a source-specific key plus `canonicalHash`, so the same upstream record can be tracked across revisions.
 - `PermitSnapshot` and `ChangeLog` together preserve both normalized history and structured field deltas.
 - `Lead.permitId` is unique to avoid accidental duplicate leads for the same permit.
+- `Lead.nextAction`, `Lead.nextActionState`, and `Lead.nextActionDueAt` support sales workflow follow-through without hiding the recommendation logic.
+- `Property.latitude` and `Property.longitude` are used for exact radius filtering when they exist; otherwise the permit list can fall back to documented city-centroid estimates.
 - `lib/repositories/source-repository.ts`, `lib/repositories/lead-repository.ts`, and `lib/repositories/sync-job-run-repository.ts` are starter access-layer modules you can extend as the app grows.
 
 ## Manual review notes
@@ -145,7 +151,7 @@ To add a new city adapter:
 
 - Replace fixture-backed Cedar Rapids ingestion with a live XLSX/CSV fetch once a stable public report URL is confirmed.
 - Add real adapter implementations for Linn County, Marion, Iowa City, and Coralville with fixture-based regression tests.
+- Add a durable geocoding/enrichment path so more permit records use exact coordinates instead of city-centroid estimates.
 - Implement merge/suppress workflows for duplicates and bad-fit patterns.
-- Add mutation routes for status transitions, notes, and source enable/disable controls.
+- Add mutation routes for source enable/disable controls and duplicate merge handling.
 - Add daily digest delivery and source-failure alerts.
-# ThermalSalesCRM
