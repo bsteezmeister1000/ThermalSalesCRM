@@ -14,6 +14,21 @@ enum SourceType {
   permit_detail
   assessor
   manual_import
+  planning_agenda
+  gis_portal
+  builder_directory
+  contractor_registry
+  open_data
+}
+
+enum AccessMethod {
+  official_api
+  open_data
+  report_download
+  html_scrape
+  permit_portal_search
+  manual_import
+  manual_review
 }
 
 enum HealthStatus {
@@ -24,12 +39,36 @@ enum HealthStatus {
   disabled
 }
 
+enum ActiveStatus {
+  active
+  inactive
+  repair_needed
+  manual_only
+  candidate
+}
+
+enum FreshnessStatus {
+  fresh
+  aging
+  stale
+  failed
+  unknown
+}
+
 enum ParseStatus {
   pending
   parsed
   low_confidence
   failed
   ignored
+}
+
+enum DataOrigin {
+  live
+  imported
+  manual
+  fixture
+  unknown
 }
 
 enum OrganizationType {
@@ -109,6 +148,55 @@ enum JobStatus {
   failed
 }
 
+enum IngestionMethod {
+  official_api
+  open_data
+  report_download
+  html_scrape
+  permit_portal_search
+  manual_import
+  fixture
+}
+
+enum ContactMethodType {
+  phone
+  email
+  website
+}
+
+enum ContactVerificationStatus {
+  verified
+  inferred
+  manual
+}
+
+enum DiagnosticIssueType {
+  source_drift
+  builder_duplicate
+  missing_builder_contact
+  transformation_mismatch
+  abnormal_row_drop
+  parse_quality_drop
+  stale_source
+  inactive_source
+  mock_source
+  duplicate_risk
+  incomplete_record
+  suspicious_zero_results
+}
+
+enum DiagnosticSeverity {
+  info
+  warning
+  critical
+}
+
+enum DiagnosticStatus {
+  open
+  resolved
+  dismissed
+}
+
 model Source {
   id                    String       @id @default(cuid())
   adapterKey            String       @unique
@@ -117,15 +205,33 @@ model Source {
   jurisdictionSlug      String
   type                  SourceType
   baseUrl               String
+  accessMethod          AccessMethod @default(manual_review)
   enabled               Boolean      @default(true)
+  activeStatus          ActiveStatus @default(active)
   supportsAutomation    Boolean      @default(true)
   manualReviewOnly      Boolean      @default(false)
   crawlFrequencyMinutes Int?
+  expectedUpdateFrequencyHours Int?
+  expectedFieldsJson    Json?
+  parserName            String?
+  parserVersion         String?
+  checkedAt             DateTime?
+  scrapedAt             DateTime?
+  lastAttemptedSyncAt   DateTime?
+  lastSuccessfulSyncAt  DateTime?
   lastRunAt             DateTime?
   lastSuccessAt         DateTime?
   lastFailureAt         DateTime?
   consecutiveFailures   Int          @default(0)
   healthStatus          HealthStatus @default(healthy)
+  freshnessStatus       FreshnessStatus @default(unknown)
+  sourceConfidence      Int          @default(50)
+  rowCountLastSync      Int          @default(0)
+  parseErrorRate        Float        @default(0)
+  completenessStatsJson Json?
+  lastFailureReason     String?
+  latestSourceHash      String?
+  latestSyncSummaryJson Json?
   notes                 String?
   healthDetailsJson     Json?
   configJson            Json?
@@ -134,10 +240,14 @@ model Source {
 
   rawRecords            RawRecord[]
   permits               Permit[]
+  organizationSourceRecords OrganizationSourceRecord[]
+  diagnostics           DataQualityIssue[]
   syncJobRuns           SyncJobRun[]
 
   @@unique([name, jurisdiction])
   @@index([jurisdictionSlug, enabled])
+  @@index([activeStatus, freshnessStatus])
+  @@index([type, accessMethod])
 }
 
 model RawRecord {
@@ -154,6 +264,7 @@ model RawRecord {
   sourceUrl        String?
   contentType      String?
   httpStatus       Int?
+  dataOrigin       DataOrigin       @default(live)
   firstSeenAt      DateTime
   lastSeenAt       DateTime
   confidence       Int              @default(50)
@@ -206,6 +317,7 @@ model Permit {
   property             Property?        @relation(fields: [propertyId], references: [id], onDelete: SetNull)
   lead                 Lead?
   snapshots            PermitSnapshot[]
+  diagnostics          DataQualityIssue[]
 
   @@index([sourceId, permitNumber])
   @@index([city, issueDate])
@@ -251,10 +363,14 @@ model Organization {
   updatedAt        DateTime           @updatedAt
 
   contacts         PersonContact[]
+  contactMethods   OrganizationContactMethod[]
+  sourceRecords    OrganizationSourceRecord[]
   primaryLeads     Lead[]             @relation("PrimaryOrganizationLeads")
   leadLinks        LeadOrganizationLink[]
+  diagnostics      DataQualityIssue[]
 
   @@index([type, lastSeenAt])
+  @@index([normalizedDomain])
 }
 
 model PersonContact {
@@ -311,6 +427,68 @@ model Property {
   @@index([subdivision])
   @@index([neighborhood])
   @@index([latitude, longitude])
+}
+
+model OrganizationContactMethod {
+  id                 String                    @id @default(cuid())
+  organizationId     String
+  type               ContactMethodType
+  value              String
+  normalizedValue    String?
+  label              String?
+  verificationStatus ContactVerificationStatus @default(verified)
+  isPrimary          Boolean                   @default(false)
+  confidence         Int                       @default(50)
+  source             String?
+  sourceUrl          String?
+  dataOrigin         DataOrigin                @default(live)
+  provenanceJson     Json?
+  lastVerifiedAt     DateTime?
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+
+  organization       Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, type, value])
+  @@index([organizationId, type, confidence])
+  @@index([normalizedValue])
+}
+
+model OrganizationSourceRecord {
+  id                     String          @id @default(cuid())
+  sourceId               String
+  organizationId         String?
+  sourceRecordKey        String
+  canonicalHash          String
+  rawCompanyName         String
+  normalizedCompanyName  String
+  contactName            String?
+  phone                  String?
+  email                  String?
+  website                String?
+  street                 String?
+  city                   String?
+  state                  String?
+  zip                    String?
+  serviceArea            String?
+  sourceUrl              String?
+  sourceConfidence       Int             @default(50)
+  ingestionMethod        IngestionMethod
+  dataOrigin             DataOrigin      @default(live)
+  rawPayloadJson         Json
+  parseErrors            String?
+  completenessJson       Json?
+  firstSeenAt            DateTime
+  lastSeenAt             DateTime
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+
+  source                 Source          @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  organization           Organization?   @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@unique([sourceId, sourceRecordKey, canonicalHash])
+  @@index([sourceId, normalizedCompanyName])
+  @@index([organizationId, lastSeenAt])
 }
 
 model Lead {
@@ -409,6 +587,32 @@ model ChangeLog {
   @@index([entityType, entityId, changedAt])
   @@index([sourceSyncJobRunId])
   @@index([sourceRawRecordId])
+}
+
+model DataQualityIssue {
+  id              String             @id @default(cuid())
+  sourceId        String?
+  permitId        String?
+  organizationId  String?
+  issueType       DiagnosticIssueType
+  severity        DiagnosticSeverity @default(warning)
+  status          DiagnosticStatus   @default(open)
+  title           String
+  detail          String?
+  metricsJson     Json?
+  detectedAt      DateTime           @default(now())
+  resolvedAt      DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  source          Source?            @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  permit          Permit?            @relation(fields: [permitId], references: [id], onDelete: Cascade)
+  organization    Organization?      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([sourceId, issueType, status])
+  @@index([organizationId, issueType, status])
+  @@index([permitId, issueType, status])
+  @@index([status, severity, detectedAt])
 }
 
 model ReviewFlag {

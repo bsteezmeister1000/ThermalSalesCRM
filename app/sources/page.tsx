@@ -7,19 +7,23 @@ import { getJobLogs, getSourcesWithHealth } from "@/lib/domain/queries/sources";
 export default async function SourcesPage() {
   const [sources, jobs] = await Promise.all([getSourcesWithHealth(), getJobLogs()]);
   const failedSources = sources.filter((source) => source.healthStatus === "failed").length;
-  const manualSources = sources.filter((source) => !source.enabled || source.manualReviewOnly).length;
+  const staleSources = sources.filter((source) => source.freshnessStatus === "stale").length;
+  const activeSources = sources.filter((source) => source.activeStatus === "active").length;
+  const reviewSources = sources.filter((source) => source.diagnostics.length > 0).length;
 
   return (
     <AppShell pathname="/sources">
       <Card className="border-slate-200 bg-white">
         <CardTitle>Source health</CardTitle>
         <CardDescription className="mt-2">
-          Keep adapters honest: what ran, what failed, and what still needs manual review.
+          Keep connectors honest: where access comes from, what synced, and which sources need repair or manual review.
         </CardDescription>
         <div className="mt-5 flex flex-wrap gap-3">
           <Badge>{sources.length} configured</Badge>
+          <Badge>{activeSources} active</Badge>
           <Badge>{failedSources} failed</Badge>
-          <Badge>{manualSources} manual or partial</Badge>
+          <Badge>{staleSources} stale</Badge>
+          <Badge>{reviewSources} need review</Badge>
         </div>
       </Card>
 

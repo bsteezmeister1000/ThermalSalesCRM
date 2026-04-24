@@ -6,7 +6,7 @@ Thermal Lead Tracker is a production-minded MVP for insulation contractors worki
 
 - `Next.js App Router + TypeScript + Tailwind`: server-rendered operational UI for dashboard, permits, leads, organizations, source health, and settings.
 - `PostgreSQL + Prisma`: normalized entities for sources, raw records, permits, permit snapshots, properties, organizations, leads, review flags, activities, change logs, sync job runs, and digests.
-- `Server-side ingestion + sync jobs`: each jurisdiction/source gets an isolated adapter implementing `fetchIndex`, optional `fetchDetail`, `parse`, and `healthcheck`, with sync runs recorded in the database.
+- `Server-side ingestion + sync jobs`: each jurisdiction/source gets an isolated connector implementing `fetchSourceData`, `parseRawRecords`, `normalizeRecords`, `validateRecords`, and `reportHealth`, with sync runs recorded in the database.
 - `Explainable scoring`: the scoring engine returns both category scores and human-readable reasons.
 - `Review-first data flow`: raw source records remain distinct from normalized lead data; manual-review sources are explicitly marked instead of scraped evasively.
 - `Permit-radius workflow`: the main permit list centers on Cedar Rapids, IA and filters records to a 100-mile radius using exact coordinates when available and city-centroid estimates when they are not.
@@ -25,16 +25,16 @@ This MVP is intentionally optimized around the data pipeline, dedupe logic, scor
 
 The database layer is designed as a real operational baseline, not a scratchpad:
 
-- `Source` tracks adapter identity, enablement, automation mode, run cadence, and health.
+- `Source` tracks access method, parser version, active/manual status, run cadence, freshness, parse quality, completeness, and failure state.
 - `RawRecord` preserves fetched source payloads separately from normalized app entities.
 - `Permit` is the current normalized representation used by the app.
 - `PermitSnapshot` preserves normalized historical observations so permit changes do not erase prior state.
-- `Property`, `Organization`, and `PersonContact` hold enrichment data with confidence and provenance support.
+- `Property`, `Organization`, `PersonContact`, `OrganizationContactMethod`, and `OrganizationSourceRecord` hold enrichment data with confidence and provenance support.
 - `Lead` models the CRM workflow state for a permit-driven opportunity, including explicit next-action tracking.
 - `LeadOrganizationLink` captures builder / GC / owner / applicant relationships cleanly.
 - `LeadActivity` records user and system activity over time.
 - `ChangeLog` stores structured field-level change history.
-- `SyncJobRun` logs ingestion/sync execution for ops and diagnostics.
+- `DataQualityIssue` and `SyncJobRun` log ingestion/sync execution, drift warnings, duplicate risk, and review queues for ops and diagnostics.
 
 Prisma access patterns:
 
@@ -47,13 +47,13 @@ Prisma access patterns:
 
 Core entities in `prisma/schema.prisma`:
 
-- `Source`: adapter metadata, run cadence, health, and enablement.
+- `Source`: adapter metadata, access method, parser metadata, freshness, health, and enablement.
 - `RawRecord`: immutable-ish raw payload lineage with dedupe hashes and parse status.
 - `Permit`: normalized permit layer with source confidence and provenance.
 - `PermitSnapshot`: historical normalized permit snapshots linked back to raw records when available.
-- `Organization`, `PersonContact`, `Property`: enrichment context.
+- `Organization`, `PersonContact`, `OrganizationContactMethod`, `OrganizationSourceRecord`, `Property`: enrichment context.
 - `Lead`, `LeadOrganizationLink`, `LeadActivity`, `ReviewFlag`: CRM/review workflow.
-- `ChangeLog`: historical field-level mutations.
+- `ChangeLog`, `DataQualityIssue`: historical mutations and data-quality review state.
 - `SyncJobRun`, `Digest`: scheduling and notification-ready outputs.
 
 ## What is live now
@@ -62,18 +62,23 @@ Core entities in `prisma/schema.prisma`:
 - Next.js app scaffold and App Router pages.
 - Prisma schema and initial migration folder.
 - Cedar Rapids monthly permit report adapter using fixture-backed sample records.
-- Manual/public-review placeholders for Linn County, Marion, Iowa City, and Coralville.
+- Live builder-directory ingestion for:
+  - Greater Cedar Rapids HBA directory
+  - Grow Cedar Valley construction contractors
+- Expanded registered source registry for Cedar Rapids, Linn County, Johnson County, Iowa City, Coralville, North Liberty, Tiffin, Marion, Hiawatha, Waterloo, Cedar Falls, assessor/GIS, and planning candidates.
 - Permit list and permit detail views centered on a 100-mile Cedar Rapids radius.
 - Lead queue, lead detail, organizations, source health, and settings pages.
 - Lead queue workflow with saved views, bulk triage, row actions, recent-change cues, and explicit next-action handling.
 - Scoring engine v1 with visible reasons.
+- Source diagnostics and drift-ready telemetry with active/manual/live distinctions.
 - Seed flow that creates sources, ingests Cedar Rapids sample permits, and writes job/digest/changelog data.
 - Unit, integration, fixture, and baseline E2E tests.
 
 ## What remains manual right now
 
 - Live municipal portal automation for Linn County, Marion, Iowa City, and Coralville is intentionally marked partial/manual until public endpoints or stable exports are verified.
-- Contact enrichment is limited to public-business-contact placeholders and manual entry patterns.
+- Assessor, GIS, and planning connectors are registered with honest access classifications but still need source-specific extraction logic.
+- Contact enrichment is limited to publicly listed business contacts and public company pages; inferred emails are not generated yet.
 - Duplicate merge UI, settings mutations, digest delivery, and geographic map clustering are not yet fully interactive.
 - Real production scheduling still needs deployment-specific cron wiring.
 
@@ -98,11 +103,15 @@ Core entities in `prisma/schema.prisma`:
 9. Run tests:
    `npx vitest run`
    `npx playwright test`
+10. Run controlled sync + diagnostics:
+   `npm run job:poll`
+   `npm run diagnostics`
 
 The initial migration lives at [prisma/migrations/20260423150000_init/migration.sql](/Users/bentonjackson/Documents/Thermal%20Sales%20CRM%20/prisma/migrations/20260423150000_init/migration.sql).
 It creates the full relational baseline, not just placeholder enums.
 The workflow refinement migration for next-action tracking lives at [prisma/migrations/20260423210103_lead_workflow_actions/migration.sql](/Users/bentonjackson/Documents/Thermal%20Sales%20CRM%20/prisma/migrations/20260423210103_lead_workflow_actions/migration.sql).
 The property-location index migration for faster radius-oriented lookups lives at [prisma/migrations/20260423213030_property_location_index/migration.sql](/Users/bentonjackson/Documents/Thermal%20Sales%20CRM%20/prisma/migrations/20260423213030_property_location_index/migration.sql).
+The source access and builder-ingestion expansion lives at [prisma/migrations/20260424133858_source_access_expansion/migration.sql](/Users/bentonjackson/Documents/Thermal%20Sales%20CRM%20/prisma/migrations/20260424133858_source_access_expansion/migration.sql).
 If Prisma CLI is temporarily unavailable in a constrained environment, [scripts/apply_manual_prisma_migration.py](/Users/bentonjackson/Documents/Thermal%20Sales%20CRM%20/scripts/apply_manual_prisma_migration.py) can apply the checked-in SQL migration and record it in `_prisma_migrations`.
 
 ## PWA notes
@@ -118,6 +127,7 @@ Adapters live under `lib/domain/adapters`.
 
 - `base.ts`: shared `SourceAdapter` interface.
 - `monthly-report-adapter.ts`: downloadable report pattern with row lineage preservation.
+- `html-directory-adapter.ts`: public builder / contractor directory ingestion for chamber and HBA-style HTML directories.
 - `manual-review-adapter.ts`: explicit safe fallback for unstable/login-gated sources.
 - `registry.ts`: active adapter registration.
 - `fixtures/`: regression fixtures for parser safety.

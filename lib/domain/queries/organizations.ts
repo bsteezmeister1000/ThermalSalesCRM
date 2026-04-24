@@ -18,6 +18,14 @@ export async function getOrganizations() {
               lastVerifiedAt: "desc"
             }
           },
+          contactMethods: {
+            take: 3,
+            orderBy: [{ isPrimary: "desc" }, { confidence: "desc" }]
+          },
+          sourceRecords: {
+            take: 3,
+            orderBy: { lastSeenAt: "desc" }
+          },
           leadLinks: {
             include: {
               lead: {
@@ -51,6 +59,16 @@ export async function getOrganizationDetail(id: string) {
     where: { id },
     include: {
       contacts: true,
+      contactMethods: {
+        orderBy: [{ isPrimary: "desc" }, { confidence: "desc" }]
+      },
+      sourceRecords: {
+        orderBy: { lastSeenAt: "desc" },
+        take: 12,
+        include: {
+          source: true
+        }
+      },
       leadLinks: {
         include: {
           lead: {

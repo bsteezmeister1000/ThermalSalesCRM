@@ -19,7 +19,8 @@
     "db:studio": "prisma studio",
     "db:seed": "node --import tsx prisma/seed.ts",
     "job:poll": "node --import tsx scripts/run-polling-job.ts",
-    "job:rollups": "node --import tsx scripts/run-rollups-job.ts"
+    "job:rollups": "node --import tsx scripts/run-rollups-job.ts",
+    "diagnostics": "node --import tsx scripts/run-diagnostics-job.ts"
   },
   "prisma": {
     "seed": "node --import tsx prisma/seed.ts"

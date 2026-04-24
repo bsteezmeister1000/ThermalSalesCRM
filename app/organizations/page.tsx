@@ -24,6 +24,8 @@ export default async function OrganizationsPage() {
           ).length;
           const cities = Array.from(new Set(organization.leadLinks.map((link) => link.lead.permit.city).filter(Boolean)));
           const bestScore = Math.max(0, ...organization.leadLinks.map((link) => link.lead.overallScore));
+          const linkedPermits = organization.leadLinks.length;
+          const publicContacts = organization.contactMethods.length || organization.contacts.length;
 
           return (
             <Card key={organization.id} className="border-slate-200 bg-white">
@@ -48,6 +50,14 @@ export default async function OrganizationsPage() {
                   <p className="text-xs uppercase tracking-[0.18em] text-slate-500">City spread</p>
                   <p className="mt-2 text-sm font-semibold text-slate-950">{cities.slice(0, 3).join(", ") || "Unknown"}</p>
                 </div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Permit footprint</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-950">{linkedPermits}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Public contacts</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-950">{publicContacts}</p>
+                </div>
               </div>
 
               <div className="mt-5 space-y-2">
@@ -63,7 +73,10 @@ export default async function OrganizationsPage() {
               </div>
 
               <p className="mt-4 text-sm text-slate-500">
-                {organization.email ?? "No public email"} · {organization.phone ?? "No public phone"}
+                {organization.contactMethods[0]?.value ?? organization.email ?? "No public email"} ·{" "}
+                {organization.contactMethods.find((method) => method.type === "phone")?.value ??
+                  organization.phone ??
+                  "No public phone"}
               </p>
 
               <div className="mt-5">

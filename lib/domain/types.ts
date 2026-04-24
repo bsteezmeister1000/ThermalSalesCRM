@@ -1,5 +1,10 @@
 import type {
+  AccessMethod,
+  ActiveStatus,
+  DataOrigin,
+  FreshnessStatus,
   HealthStatus,
+  IngestionMethod,
   LeadStatus,
   LeadType,
   OrganizationType,
@@ -19,6 +24,58 @@ export type RawDetail = {
   sourceUrl?: string;
   payload: Record<string, unknown>;
   rawText?: string;
+  contentType?: string;
+  sourceUpdatedAt?: Date;
+  dataOrigin?: DataOrigin;
+};
+
+export type RawSourceRecord = {
+  sourceRecordKey: string;
+  payload: Record<string, unknown>;
+  rawText?: string;
+  sourceUrl?: string;
+  contentType?: string;
+  sourceUpdatedAt?: Date;
+  dataOrigin?: DataOrigin;
+};
+
+export type CompletenessStats = {
+  totalRawRecords: number;
+  totalNormalizedRecords: number;
+  percentWithAddress: number;
+  percentWithPermitNumber: number;
+  percentWithIssueDate: number;
+  percentWithContractorBuilder: number;
+  percentWithOwner: number;
+  percentWithProjectValue: number;
+  percentWithDescription: number;
+  parseErrorRate: number;
+  duplicateRate: number;
+};
+
+export type SourceHealth = {
+  status: HealthStatus;
+  message: string;
+  supportsAutomation: boolean;
+  freshnessStatus?: FreshnessStatus;
+  sourceConfidence?: number;
+};
+
+export type SourceAdapterDefinition = {
+  key: string;
+  name: string;
+  jurisdiction: string;
+  type: SourceType;
+  accessMethod: AccessMethod;
+  baseUrl: string;
+  description: string;
+  automationMode: "automated" | "partial_manual" | "manual_review";
+  activeStatus?: ActiveStatus;
+  parserName?: string;
+  parserVersion?: string;
+  expectedUpdateFrequencyHours?: number;
+  expectedFields?: string[];
+  notes?: string;
 };
 
 export type NormalizedPermitInput = {
@@ -79,6 +136,58 @@ export type NormalizedPermitInput = {
   }>;
 };
 
+export type NormalizedOrganizationInput = {
+  sourceRecordKey: string;
+  rawCompanyName: string;
+  normalizedCompanyName: string;
+  organizationType: OrganizationType;
+  sourceConfidence: number;
+  ingestionMethod: IngestionMethod;
+  dataOrigin?: DataOrigin;
+  sourceUrl?: string;
+  serviceArea?: string;
+  street?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  notes?: string;
+  contactName?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  provenance: Record<string, unknown>;
+  contactMethods?: Array<{
+    type: "phone" | "email" | "website";
+    value: string;
+    normalizedValue?: string;
+    verificationStatus: "verified" | "inferred" | "manual";
+    confidence: number;
+    source?: string;
+    sourceUrl?: string;
+  }>;
+};
+
+export type ValidationIssue = {
+  code: string;
+  level: "warning" | "error";
+  message: string;
+  sourceRecordKey?: string;
+};
+
+export type SourceSyncPayload = {
+  rawRecords: RawSourceRecord[];
+  permits: NormalizedPermitInput[];
+  organizations: NormalizedOrganizationInput[];
+  parsingErrors: ValidationIssue[];
+  validationIssues: ValidationIssue[];
+  completeness: CompletenessStats;
+  sourceHealth: SourceHealth;
+};
+
+export type ConnectorSyncResult = SourceSyncPayload & {
+  syncSummary: Record<string, unknown>;
+};
+
 export type PermitListFilters = {
   query?: string;
   city?: string;
@@ -88,21 +197,6 @@ export type PermitListFilters = {
   leadStatus?: LeadStatus | "";
   radiusMode?: "verified_or_approx" | "verified_only";
   sort?: "newest" | "oldest" | "highest_value" | "priority" | "recently_seen";
-};
-
-export type SourceHealth = {
-  status: HealthStatus;
-  message: string;
-  supportsAutomation: boolean;
-};
-
-export type SourceAdapterDefinition = {
-  key: string;
-  name: string;
-  jurisdiction: string;
-  type: SourceType;
-  description: string;
-  automationMode: "automated" | "partial_manual" | "manual_review";
 };
 
 export type ScoreReason = {
@@ -149,6 +243,8 @@ export type IngestionResult = {
   discovered: number;
   rawRecordsWritten: number;
   permitsUpserted: number;
+  organizationsUpserted: number;
+  contactsUpserted: number;
   leadsUpserted: number;
   errors: string[];
 };

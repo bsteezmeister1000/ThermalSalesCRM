@@ -53,6 +53,17 @@ export default async function OrganizationDetailPage({
         <Card className="border-slate-200 bg-white">
           <CardTitle>Contacts</CardTitle>
           <div className="mt-4 space-y-3">
+            {organization.contactMethods.length ? (
+              organization.contactMethods.map((method) => (
+                <div key={method.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="font-semibold text-slate-950">{method.type}</p>
+                  <p className="text-sm text-slate-500">{method.value}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {method.verificationStatus} · confidence {method.confidence}
+                  </p>
+                </div>
+              ))
+            ) : null}
             {organization.contacts.length ? (
               organization.contacts.map((contact) => (
                 <div key={contact.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -92,6 +103,26 @@ export default async function OrganizationDetailPage({
           </div>
         </Card>
       </section>
+      <Card className="border-slate-200 bg-white">
+        <CardTitle>Source coverage</CardTitle>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {organization.sourceRecords.length ? (
+            organization.sourceRecords.map((record) => (
+              <div key={record.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="font-semibold text-slate-950">{record.source.name}</p>
+                <p className="mt-1 text-sm text-slate-500">
+                  {record.rawCompanyName} · {record.city ?? "Unknown city"}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  conf. {record.sourceConfidence} · seen {record.lastSeenAt.toISOString().slice(0, 10)}
+                </p>
+              </div>
+            ))
+          ) : (
+            <p className="text-sm text-slate-500">No public directory source records are linked yet.</p>
+          )}
+        </div>
+      </Card>
     </AppShell>
   );
 }

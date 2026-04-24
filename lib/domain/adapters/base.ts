@@ -1,15 +1,16 @@
 import type {
-  DiscoveredRecord,
-  NormalizedPermitInput,
-  RawDetail,
+  ConnectorSyncResult,
+  RawSourceRecord,
   SourceAdapterDefinition,
   SourceHealth
 } from "@/lib/domain/types";
 
 export interface SourceAdapter {
   definition: SourceAdapterDefinition;
-  fetchIndex(): Promise<DiscoveredRecord[]>;
-  fetchDetail?(record: DiscoveredRecord): Promise<RawDetail>;
-  parse(detail: RawDetail, record?: DiscoveredRecord): Promise<NormalizedPermitInput[]>;
-  healthcheck(): Promise<SourceHealth>;
+  fetchSourceData(): Promise<RawSourceRecord[]>;
+  parseRawRecords(rawRecords: RawSourceRecord[]): Promise<RawSourceRecord[]>;
+  normalizeRecords(parsedRecords: RawSourceRecord[]): Promise<ConnectorSyncResult>;
+  validateRecords(syncResult: ConnectorSyncResult): Promise<ConnectorSyncResult>;
+  upsertRecords?(syncResult: ConnectorSyncResult): Promise<void>;
+  reportHealth(syncResult?: ConnectorSyncResult): Promise<SourceHealth>;
 }

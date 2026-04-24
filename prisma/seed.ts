@@ -1,35 +1,11 @@
 import { LeadStatus, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db/prisma";
-import { getAdapters } from "@/lib/domain/adapters/registry";
 import { ingestSourceByKey } from "@/lib/domain/ingestion/service";
-import { upsertSource } from "@/lib/repositories/source-repository";
-
-function slugifyJurisdiction(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-}
+import { syncSourceRegistry } from "@/lib/domain/ingestion/source-registry";
 
 async function seedSources() {
-  for (const adapter of getAdapters()) {
-    const health = await adapter.healthcheck();
-    await upsertSource({
-      adapterKey: adapter.definition.key,
-      name: adapter.definition.name,
-      jurisdiction: adapter.definition.jurisdiction,
-      jurisdictionSlug: slugifyJurisdiction(adapter.definition.jurisdiction),
-      type: adapter.definition.type,
-      baseUrl: adapter.definition.key,
-      supportsAutomation: health.supportsAutomation,
-      manualReviewOnly: !health.supportsAutomation,
-      crawlFrequencyMinutes: health.supportsAutomation ? 1440 : null,
-      healthStatus: health.status,
-      notes: adapter.definition.description,
-      healthDetailsJson: {
-        message: health.message,
-        automationMode: adapter.definition.automationMode
-      }
-    });
-  }
+  await syncSourceRegistry();
 }
 
 async function seedJobRuns() {
