@@ -1,10 +1,17 @@
-import { getAdapters } from "@/lib/domain/adapters/registry";
-import { ingestSourceByKey } from "@/lib/domain/ingestion/service";
+import { runDueAutomatedSources } from "@/lib/domain/ingestion/service";
+import { syncRegisteredSourceDefaults } from "@/lib/repositories/source-repository";
 
 async function main() {
-  for (const adapter of getAdapters()) {
-    if (adapter.definition.automationMode === "automated") {
-      await ingestSourceByKey(adapter.definition.key);
+  await syncRegisteredSourceDefaults();
+  const results = await runDueAutomatedSources();
+
+  for (const result of results) {
+    if (result.ran) {
+      console.log(
+        `${result.sourceKey}: ran, permits=${result.result?.permitsUpserted ?? 0}, errors=${result.result?.errors.length ?? 0}`
+      );
+    } else {
+      console.log(`${result.sourceKey}: skipped, ${result.reason}`);
     }
   }
 }

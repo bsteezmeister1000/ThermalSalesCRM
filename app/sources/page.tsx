@@ -2,6 +2,9 @@ import { AppShell } from "@/components/layout/app-shell";
 import { SourceHealthTable } from "@/components/sources/source-health-table";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { getJobLogs, getSourcesWithHealth } from "@/lib/domain/queries/sources";
+import { formatIsoDateTime } from "@/lib/utils/date";
+
+export const dynamic = "force-dynamic";
 
 export default async function SourcesPage() {
   const [sources, jobs] = await Promise.all([getSourcesWithHealth(), getJobLogs()]);
@@ -27,7 +30,8 @@ export default async function SourcesPage() {
                 <p className="text-sm text-muted-foreground">{job.status}</p>
               </div>
               <p className="mt-2 text-sm text-muted-foreground">
-                Started {job.startedAt.toISOString()} · rows fetched {job.rowsFetched} · rows parsed {job.rowsParsed}
+                Started {formatIsoDateTime(job.startedAt)} · rows fetched {job.rowsFetched} · rows parsed{" "}
+                {job.rowsParsed}
               </p>
               {job.errorMessage ? <p className="mt-2 text-sm text-orange-700">{job.errorMessage}</p> : null}
             </div>

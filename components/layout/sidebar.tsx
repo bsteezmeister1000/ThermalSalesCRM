@@ -11,7 +11,7 @@ const links = [
   { href: "/sources", label: "Sources & Health", icon: ShieldCheck },
   { href: "/imports", label: "Imports", icon: Database },
   { href: "/settings", label: "Scoring Rules", icon: Settings2 }
-];
+] as const;
 
 export function Sidebar({ currentPath }: { currentPath: string }) {
   return (

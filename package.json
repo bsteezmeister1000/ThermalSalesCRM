@@ -19,6 +19,9 @@
     "db:studio": "prisma studio",
     "db:seed": "node --import tsx prisma/seed.ts",
     "job:poll": "node --import tsx scripts/run-polling-job.ts",
+    "job:coralville-monthly": "node --import tsx scripts/run-coralville-monthly-job.ts",
+    "job:iowa-city-daily-inspections": "node --import tsx scripts/run-iowa-city-daily-inspections-job.ts",
+    "job:iowa-city-permit-search": "node --import tsx scripts/run-iowa-city-permit-search-job.ts",
     "job:rollups": "node --import tsx scripts/run-rollups-job.ts"
   },
   "prisma": {
@@ -31,7 +34,8 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.453.0",
-    "next": "^15.0.0",
+    "next": "^16.2.4",
+    "pdf-parse": "^2.4.5",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwind-merge": "^2.5.4",

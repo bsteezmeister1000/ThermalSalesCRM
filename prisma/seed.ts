@@ -21,7 +21,9 @@ async function seedSources() {
       baseUrl: adapter.definition.key,
       supportsAutomation: health.supportsAutomation,
       manualReviewOnly: !health.supportsAutomation,
-      crawlFrequencyMinutes: health.supportsAutomation ? 1440 : null,
+      crawlFrequencyMinutes: health.supportsAutomation
+        ? adapter.definition.crawlFrequencyMinutes ?? 1440
+        : null,
       healthStatus: health.status,
       notes: adapter.definition.description,
       healthDetailsJson: {

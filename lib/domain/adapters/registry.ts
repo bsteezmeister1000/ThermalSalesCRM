@@ -1,3 +1,5 @@
+import { CoralvilleBuildingReportsAdapter } from "@/lib/domain/adapters/coralville-building-reports-adapter";
+import { IowaCityPermitSearchAdapter } from "@/lib/domain/adapters/iowa-city-permit-search-adapter";
 import { MonthlyReportAdapter } from "@/lib/domain/adapters/monthly-report-adapter";
 import { ManualReviewAdapter } from "@/lib/domain/adapters/manual-review-adapter";
 import { cedarRapidsMonthlyPermitFixture } from "@/lib/domain/adapters/fixtures/cedar-rapids-monthly-report";
@@ -13,7 +15,8 @@ export function getAdapters(): SourceAdapter[] {
         type: "xlsx_report",
         description:
           "Monthly report adapter. Prefer XLSX/CSV when published, PDF only as fallback.",
-        automationMode: "automated"
+        automationMode: "automated",
+        crawlFrequencyMinutes: 60 * 24 * 30
       },
       fixtureRows: [...cedarRapidsMonthlyPermitFixture]
     }),
@@ -33,21 +36,7 @@ export function getAdapters(): SourceAdapter[] {
       description: "Partial manual review. Keep portal URLs and import CSV/XLSX exports.",
       automationMode: "partial_manual"
     }),
-    new ManualReviewAdapter({
-      key: "iowa-city-public-lookup",
-      name: "Iowa City Public Lookup",
-      jurisdiction: "Iowa City, IA",
-      type: "permit_detail",
-      description: "Manual/public review until robust endpoint mapping is approved.",
-      automationMode: "partial_manual"
-    }),
-    new ManualReviewAdapter({
-      key: "coralville-public-search",
-      name: "Coralville Public Search",
-      jurisdiction: "Coralville, IA",
-      type: "public_search",
-      description: "Manual review only for now to avoid brittle scraping.",
-      automationMode: "manual_review"
-    })
+    new IowaCityPermitSearchAdapter(),
+    new CoralvilleBuildingReportsAdapter()
   ];
 }

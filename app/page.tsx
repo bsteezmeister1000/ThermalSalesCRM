@@ -8,12 +8,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { getDashboardData } from "@/lib/domain/queries/dashboard";
-import { getLeadQueue } from "@/lib/domain/queries/leads";
+import { getLeadFilters, getLeadQueue } from "@/lib/domain/queries/leads";
 import type { LeadQueueFilters } from "@/lib/domain/types";
 
 type HomeProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
+
+export const dynamic = "force-dynamic";
 
 function parseFilters(params: Record<string, string | string[] | undefined>): LeadQueueFilters {
   const getValue = (key: string) => {
@@ -42,7 +44,7 @@ export default async function Home({ searchParams }: HomeProps) {
   const params = await searchParams;
   const dashboard = await getDashboardData();
   const filters = parseFilters(params);
-  const leads = await getLeadQueue(filters);
+  const [leads, filterOptions] = await Promise.all([getLeadQueue(filters), getLeadFilters()]);
 
   return (
     <AppShell pathname="/">
@@ -109,7 +111,7 @@ export default async function Home({ searchParams }: HomeProps) {
             <Badge>{leads.length} visible</Badge>
           </div>
           <div className="mt-5">
-            <FilterBar filters={filters} />
+            <FilterBar filters={filters} options={filterOptions} />
           </div>
           <div className="mt-5">
             <LeadQueue leads={leads} />

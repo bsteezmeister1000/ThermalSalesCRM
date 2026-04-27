@@ -1,4 +1,3 @@
-import { unstable_cache } from "next/cache";
 import { Prisma } from "@prisma/client";
 
 import prisma from "@/lib/prisma";
@@ -40,18 +39,13 @@ export async function createSyncJobRun(input: {
 }
 
 export async function listRecentSyncJobRuns() {
-  return unstable_cache(
-    async () =>
-      prisma.syncJobRun.findMany({
-        include: {
-          source: true
-        },
-        orderBy: {
-          startedAt: "desc"
-        },
-        take: 50
-      }),
-    ["recent-sync-job-runs"],
-    { revalidate: 30 }
-  )();
+  return prisma.syncJobRun.findMany({
+    include: {
+      source: true
+    },
+    orderBy: {
+      startedAt: "desc"
+    },
+    take: 50
+  });
 }

@@ -63,6 +63,18 @@ export type NormalizedPermitInput = {
     type: OrganizationType;
     relationshipType: RelationshipType;
     confidence: number;
+    contacts?: Array<{
+      fullName: string;
+      firstName?: string;
+      lastName?: string;
+      roleTitle?: string;
+      email?: string;
+      phone?: string;
+      source?: string;
+      sourceUrl?: string;
+      provenance?: Record<string, unknown>;
+      confidence?: number;
+    }>;
   }>;
   reviewFlags?: Array<{
     flag:
@@ -90,6 +102,7 @@ export type SourceAdapterDefinition = {
   type: SourceType;
   description: string;
   automationMode: "automated" | "partial_manual" | "manual_review";
+  crawlFrequencyMinutes?: number;
 };
 
 export type ScoreReason = {

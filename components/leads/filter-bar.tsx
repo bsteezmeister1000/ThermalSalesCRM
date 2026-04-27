@@ -3,23 +3,50 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import type { LeadQueueFilters } from "@/lib/domain/types";
+import type { getLeadFilters } from "@/lib/domain/queries/leads";
 
-export function FilterBar({ filters }: { filters: LeadQueueFilters }) {
+type LeadFilterOptions = Awaited<ReturnType<typeof getLeadFilters>>;
+
+export function FilterBar({
+  filters,
+  options
+}: {
+  filters: LeadQueueFilters;
+  options: LeadFilterOptions;
+}) {
   return (
     <Card>
-      <form className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+      <form className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
         <input
           name="query"
-          placeholder="Search permit #, address, or project"
+          placeholder="Search permit #, city, jurisdiction, address, or project"
           defaultValue={filters.query}
           className="rounded-2xl border bg-white px-4 py-3"
         />
-        <input
+        <select
           name="city"
-          placeholder="City"
           defaultValue={filters.city}
           className="rounded-2xl border bg-white px-4 py-3"
-        />
+        >
+          <option value="">Any city</option>
+          {options.cities.map((city) => (
+            <option key={city} value={city}>
+              {city}
+            </option>
+          ))}
+        </select>
+        <select
+          name="jurisdiction"
+          defaultValue={filters.jurisdiction}
+          className="rounded-2xl border bg-white px-4 py-3"
+        >
+          <option value="">Any jurisdiction</option>
+          {options.jurisdictions.map((jurisdiction) => (
+            <option key={jurisdiction} value={jurisdiction}>
+              {jurisdiction}
+            </option>
+          ))}
+        </select>
         <input
           name="organization"
           placeholder="Builder / organization"
@@ -31,7 +58,7 @@ export function FilterBar({ filters }: { filters: LeadQueueFilters }) {
           defaultValue={filters.status}
           className="rounded-2xl border bg-white px-4 py-3"
         >
-          <option value="">Any status</option>
+          <option value="">Any active status</option>
           <option value="new">New</option>
           <option value="review">Review</option>
           <option value="qualified">Qualified</option>
@@ -47,13 +74,13 @@ export function FilterBar({ filters }: { filters: LeadQueueFilters }) {
           defaultValue={filters.sort ?? "newest"}
           className="rounded-2xl border bg-white px-4 py-3"
         >
-          <option value="newest">Newest</option>
+          <option value="newest">Most recent permit</option>
           <option value="highest_score">Highest score</option>
           <option value="valuation">Valuation</option>
           <option value="builder_momentum">Builder momentum</option>
           <option value="recently_changed">Recently changed</option>
         </select>
-        <div className="md:col-span-2 xl:col-span-5 flex items-center gap-3">
+        <div className="flex items-center gap-3 md:col-span-2 xl:col-span-6">
           <Button type="submit">Apply filters</Button>
           <Button type="button" variant="outline" asChild>
             <Link href="/">Reset</Link>

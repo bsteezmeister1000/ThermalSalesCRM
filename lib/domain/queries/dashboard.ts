@@ -1,12 +1,12 @@
-import { unstable_cache } from "next/cache";
 import { subDays } from "date-fns";
 
+import { getAdapters } from "@/lib/domain/adapters/registry";
 import { prisma } from "@/lib/db/prisma";
 
-const getCachedDashboardData = unstable_cache(
-  async () => {
+export async function getDashboardData() {
   const today = subDays(new Date(), 1);
   const week = subDays(new Date(), 7);
+  const registeredAdapterKeys = getAdapters().map((adapter) => adapter.definition.key);
 
   const [
     newToday,
@@ -30,6 +30,11 @@ const getCachedDashboardData = unstable_cache(
       _count: { _all: true }
     }),
     prisma.organization.findMany({
+      where: {
+        type: {
+          in: ["builder", "general_contractor", "developer"]
+        }
+      },
       take: 5,
       orderBy: {
         leadLinks: {
@@ -45,6 +50,11 @@ const getCachedDashboardData = unstable_cache(
       }
     }),
     prisma.source.findMany({
+      where: {
+        adapterKey: {
+          in: registeredAdapterKeys
+        }
+      },
       include: {
         syncJobRuns: {
           take: 1,
@@ -96,13 +106,4 @@ const getCachedDashboardData = unstable_cache(
     trendByDay,
     subdivisionHotSpots
   };
-  },
-  ["dashboard-data"],
-  {
-    revalidate: 60
-  }
-);
-
-export async function getDashboardData() {
-  return getCachedDashboardData();
 }

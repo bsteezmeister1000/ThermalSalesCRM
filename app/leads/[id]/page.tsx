@@ -1,11 +1,57 @@
 import { notFound } from "next/navigation";
 
-import { updateLeadWorkflowAction } from "@/app/actions/lead-actions";
+import { archiveLeadAction, updateLeadEnrichmentAction, updateLeadWorkflowAction } from "@/app/actions/lead-actions";
 import { AppShell } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { getLeadDetail } from "@/lib/domain/queries/leads";
+
+function isValidHttpUrl(value: unknown): value is string {
+  if (typeof value !== "string") {
+    return false;
+  }
+
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function formatProvenanceValue(value: unknown) {
+  if (value === null || value === undefined || value === "") {
+    return "Unknown";
+  }
+
+  if (Array.isArray(value)) {
+    return value.join(", ");
+  }
+
+  if (typeof value === "object") {
+    return JSON.stringify(value);
+  }
+
+  return String(value);
+}
+
+function ClickableValue({ value }: { value: unknown }) {
+  if (isValidHttpUrl(value)) {
+    return (
+      <a
+        href={value}
+        target="_blank"
+        rel="noreferrer"
+        className="font-semibold text-primary underline decoration-primary/40 underline-offset-4 hover:decoration-primary"
+      >
+        Open source
+      </a>
+    );
+  }
+
+  return <span>{formatProvenanceValue(value)}</span>;
+}
 
 export default async function LeadDetailPage({
   params
@@ -21,6 +67,12 @@ export default async function LeadDetailPage({
   const scoreReasons = Array.isArray(lead.scoreExplanationJson)
     ? (lead.scoreExplanationJson as Array<{ label: string; weight: number; detail?: string }>)
     : [];
+  const primaryContact = lead.primaryOrg?.contacts[0];
+  const provenance =
+    lead.permit.provenanceJson && typeof lead.permit.provenanceJson === "object" && !Array.isArray(lead.permit.provenanceJson)
+      ? (lead.permit.provenanceJson as Record<string, unknown>)
+      : {};
+  const provenanceEntries = Object.entries(provenance);
 
   return (
     <AppShell pathname="/leads">
@@ -42,9 +94,37 @@ export default async function LeadDetailPage({
             </div>
             <div className="rounded-2xl bg-secondary/70 p-4">
               <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Source provenance</p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Raw and normalized data stay separate. Permit source URL: {lead.permit.permitUrl ?? "fixture/manual"}.
-              </p>
+              <div className="mt-3 space-y-2 text-sm leading-6 text-muted-foreground">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <span>Source</span>
+                  <ClickableValue value={lead.permit.permitUrl ?? "fixture/manual"} />
+                </div>
+                {provenanceEntries.length ? (
+                  <details className="group rounded-xl border border-border/60 bg-white/50 px-3 py-2">
+                    <summary className="cursor-pointer list-none font-semibold text-foreground marker:hidden">
+                      <span className="inline-flex w-full items-center justify-between gap-3">
+                        <span>Provenance details</span>
+                        <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground group-open:hidden">
+                          Expand
+                        </span>
+                        <span className="hidden text-xs uppercase tracking-[0.18em] text-muted-foreground group-open:inline">
+                          Collapse
+                        </span>
+                      </span>
+                    </summary>
+                    <div className="mt-3 space-y-2 border-t border-border/60 pt-3">
+                      {provenanceEntries.map(([key, value]) => (
+                        <div key={key} className="flex flex-wrap items-center justify-between gap-3">
+                          <span className="capitalize">{key.replaceAll("_", " ")}</span>
+                          <span className="max-w-full break-words text-right">
+                            <ClickableValue value={value} />
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                ) : null}
+              </div>
             </div>
           </div>
           <div className="mt-6 grid gap-4 md:grid-cols-4">
@@ -115,6 +195,244 @@ export default async function LeadDetailPage({
               className="rounded-2xl border bg-white px-4 py-3"
             />
             <Button type="submit">Save status</Button>
+          </form>
+          <form action={archiveLeadAction} className="mt-3 flex justify-end">
+            <input type="hidden" name="leadId" value={lead.id} />
+            <Button type="submit" variant="outline">Archive lead</Button>
+          </form>
+        </Card>
+      </section>
+
+      <section>
+        <Card>
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+            <div>
+              <CardTitle>Edit scraped lead details</CardTitle>
+              <CardDescription className="mt-2">
+                Add reviewed information without changing the preserved raw source record. Updates here enrich the CRM lead, permit, property, organization, and contact records.
+              </CardDescription>
+            </div>
+            <Badge>Manual enrichment</Badge>
+          </div>
+
+          <form action={updateLeadEnrichmentAction} className="mt-6 grid gap-6">
+            <input type="hidden" name="leadId" value={lead.id} />
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <label className="grid gap-2 text-sm font-semibold">
+                Assigned to
+                <input
+                  name="assignedTo"
+                  defaultValue={lead.assignedTo ?? ""}
+                  className="rounded-2xl border bg-white px-4 py-3"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-semibold xl:col-span-2">
+                Recommended action
+                <input
+                  name="recommendedAction"
+                  defaultValue={lead.recommendedAction ?? ""}
+                  className="rounded-2xl border bg-white px-4 py-3"
+                />
+              </label>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <label className="grid gap-2 text-sm font-semibold">
+                Permit type
+                <input
+                  name="permitType"
+                  defaultValue={lead.permit.permitType ?? ""}
+                  className="rounded-2xl border bg-white px-4 py-3"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-semibold">
+                Work class
+                <input
+                  name="workClass"
+                  defaultValue={lead.permit.workClass ?? ""}
+                  className="rounded-2xl border bg-white px-4 py-3"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-semibold">
+                Valuation
+                <input
+                  name="valuation"
+                  inputMode="decimal"
+                  defaultValue={lead.permit.valuation?.toString() ?? ""}
+                  className="rounded-2xl border bg-white px-4 py-3"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-semibold">
+                Parcel
+                <input
+                  name="parcelNumber"
+                  defaultValue={lead.property?.parcelNumber ?? lead.permit.parcelNumber ?? ""}
+                  className="rounded-2xl border bg-white px-4 py-3"
+                />
+              </label>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <label className="grid gap-2 text-sm font-semibold xl:col-span-2">
+                Address
+                <input
+                  name="address1"
+                  defaultValue={lead.permit.address1 ?? ""}
+                  className="rounded-2xl border bg-white px-4 py-3"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-semibold">
+                City
+                <input
+                  name="city"
+                  defaultValue={lead.permit.city ?? ""}
+                  className="rounded-2xl border bg-white px-4 py-3"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-semibold">
+                State
+                <input
+                  name="state"
+                  defaultValue={lead.permit.state ?? "IA"}
+                  className="rounded-2xl border bg-white px-4 py-3"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-semibold">
+                ZIP
+                <input
+                  name="zip"
+                  defaultValue={lead.permit.zip ?? ""}
+                  className="rounded-2xl border bg-white px-4 py-3"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-semibold">
+                Subdivision
+                <input
+                  name="subdivision"
+                  defaultValue={lead.property?.subdivision ?? ""}
+                  className="rounded-2xl border bg-white px-4 py-3"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-semibold">
+                Neighborhood
+                <input
+                  name="neighborhood"
+                  defaultValue={lead.property?.neighborhood ?? ""}
+                  className="rounded-2xl border bg-white px-4 py-3"
+                />
+              </label>
+            </div>
+
+            <div className="grid gap-4 xl:grid-cols-2">
+              <label className="grid gap-2 text-sm font-semibold">
+                Project description
+                <textarea
+                  name="projectDescription"
+                  rows={4}
+                  defaultValue={lead.permit.projectDescription ?? ""}
+                  className="rounded-2xl border bg-white px-4 py-3"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-semibold">
+                Review notes
+                <textarea
+                  name="reviewNotes"
+                  rows={4}
+                  defaultValue={lead.reviewNotes ?? ""}
+                  className="rounded-2xl border bg-white px-4 py-3"
+                />
+              </label>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <label className="grid gap-2 text-sm font-semibold xl:col-span-2">
+                Builder / GC
+                <input
+                  name="organizationName"
+                  defaultValue={lead.primaryOrg?.name ?? ""}
+                  className="rounded-2xl border bg-white px-4 py-3"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-semibold">
+                Organization type
+                <select
+                  name="organizationType"
+                  defaultValue={lead.primaryOrg?.type ?? "builder"}
+                  className="rounded-2xl border bg-white px-4 py-3"
+                >
+                  <option value="builder">Builder</option>
+                  <option value="general_contractor">General contractor</option>
+                  <option value="subcontractor">Subcontractor</option>
+                  <option value="developer">Developer</option>
+                  <option value="owner">Owner</option>
+                  <option value="unknown">Unknown</option>
+                </select>
+              </label>
+              <label className="grid gap-2 text-sm font-semibold">
+                Relationship
+                <select
+                  name="relationshipType"
+                  defaultValue={lead.organizationLinks[0]?.relationshipType ?? "builder"}
+                  className="rounded-2xl border bg-white px-4 py-3"
+                >
+                  <option value="builder">Builder</option>
+                  <option value="gc">GC</option>
+                  <option value="contractor">Contractor</option>
+                  <option value="owner">Owner</option>
+                  <option value="applicant">Applicant</option>
+                  <option value="inferred">Inferred</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <label className="grid gap-2 text-sm font-semibold">
+                Contact name
+                <input
+                  name="contactName"
+                  defaultValue={primaryContact?.fullName ?? ""}
+                  className="rounded-2xl border bg-white px-4 py-3"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-semibold">
+                Contact title
+                <input
+                  name="contactTitle"
+                  defaultValue={primaryContact?.roleTitle ?? ""}
+                  className="rounded-2xl border bg-white px-4 py-3"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-semibold">
+                Contact email
+                <input
+                  name="contactEmail"
+                  type="email"
+                  defaultValue={primaryContact?.email ?? ""}
+                  className="rounded-2xl border bg-white px-4 py-3"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-semibold">
+                Contact phone
+                <input
+                  name="contactPhone"
+                  defaultValue={primaryContact?.phone ?? ""}
+                  className="rounded-2xl border bg-white px-4 py-3"
+                />
+              </label>
+            </div>
+
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
+              <label className="grid gap-2 text-sm font-semibold">
+                Activity note
+                <input
+                  name="activityNote"
+                  placeholder="What did you verify or add?"
+                  className="rounded-2xl border bg-white px-4 py-3"
+                />
+              </label>
+              <Button type="submit">Save lead details</Button>
+            </div>
           </form>
         </Card>
       </section>

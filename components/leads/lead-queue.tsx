@@ -1,11 +1,27 @@
 import Link from "next/link";
+import { Archive, ExternalLink } from "lucide-react";
 
+import { archiveLeadAction } from "@/app/actions/lead-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import type { getLeadQueue } from "@/lib/domain/queries/leads";
+import { formatIsoDate } from "@/lib/utils/date";
 
 type LeadQueueItem = Awaited<ReturnType<typeof getLeadQueue>>[number];
+
+function isValidHttpUrl(value: unknown): value is string {
+  if (typeof value !== "string") {
+    return false;
+  }
+
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
 
 function ScorePill({ score }: { score: number }) {
   const tone =
@@ -40,20 +56,35 @@ export function LeadQueue({ leads }: { leads: LeadQueueItem[] }) {
             <p className="mt-4 text-sm text-muted-foreground">{lead.recommendedAction}</p>
             <div className="mt-4 flex items-center justify-between">
               <span className="text-sm font-medium">{lead.primaryOrg?.name ?? "Builder missing"}</span>
-              <Button asChild variant="outline">
-                <Link href={`/leads/${lead.id}`} prefetch={false}>
-                  Open detail
-                </Link>
-              </Button>
+              <div className="flex items-center gap-2">
+                <form action={archiveLeadAction}>
+                  <input type="hidden" name="leadId" value={lead.id} />
+                  <Button type="submit" variant="outline" title="Archive lead">
+                    <Archive className="h-4 w-4" />
+                  </Button>
+                </form>
+                {isValidHttpUrl(lead.permit.permitUrl) ? (
+                  <Button asChild variant="outline" title="Open source">
+                    <a href={lead.permit.permitUrl} target="_blank" rel="noreferrer">
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  </Button>
+                ) : null}
+                <Button asChild variant="outline">
+                  <Link href={`/leads/${lead.id}`} prefetch={false}>
+                    Open detail
+                  </Link>
+                </Button>
+              </div>
             </div>
           </Card>
         ))}
       </div>
 
       <Card className="hidden overflow-hidden xl:block">
-        <div className="overflow-x-auto">
+        <div className="max-h-[760px] overflow-auto">
           <table className="min-w-full text-left text-sm">
-            <thead className="border-b border-border/80 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+            <thead className="sticky top-0 z-10 border-b border-border/80 bg-card text-xs uppercase tracking-[0.18em] text-muted-foreground">
               <tr>
                 <th className="px-4 py-3">Lead</th>
                 <th className="px-4 py-3">Org</th>
@@ -71,7 +102,7 @@ export function LeadQueue({ leads }: { leads: LeadQueueItem[] }) {
                   <td className="px-4 py-4">
                     <div className="font-semibold">{lead.permit.address1 ?? "No address"}</div>
                     <div className="text-muted-foreground">
-                      {lead.permit.permitNumber ?? "Unknown permit"} · {lead.permit.issueDate?.toISOString().slice(0, 10)}
+                      {lead.permit.permitNumber ?? "Unknown permit"} · {formatIsoDate(lead.permit.issueDate)}
                     </div>
                   </td>
                   <td className="px-4 py-4">{lead.primaryOrg?.name ?? "Missing builder"}</td>
@@ -93,11 +124,26 @@ export function LeadQueue({ leads }: { leads: LeadQueueItem[] }) {
                     </div>
                   </td>
                   <td className="px-4 py-4">
-                    <Button asChild variant="ghost">
-                      <Link href={`/leads/${lead.id}`} prefetch={false}>
-                        View
-                      </Link>
-                    </Button>
+                    <div className="flex items-center justify-end gap-2">
+                      <form action={archiveLeadAction}>
+                        <input type="hidden" name="leadId" value={lead.id} />
+                        <Button type="submit" variant="ghost" title="Archive lead">
+                          <Archive className="h-4 w-4" />
+                        </Button>
+                      </form>
+                      {isValidHttpUrl(lead.permit.permitUrl) ? (
+                        <Button asChild variant="ghost" title="Open source">
+                          <a href={lead.permit.permitUrl} target="_blank" rel="noreferrer">
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        </Button>
+                      ) : null}
+                      <Button asChild variant="ghost">
+                        <Link href={`/leads/${lead.id}`} prefetch={false}>
+                          View
+                        </Link>
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
